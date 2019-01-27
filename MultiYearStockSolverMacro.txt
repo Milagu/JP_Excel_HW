@@ -1,0 +1,146 @@
+Public stockSummary(3) As Variant
+
+Sub WorkWith(current_sheet As Worksheet):
+
+    '#Declare variables
+    Dim data_rng As Range
+    Dim used_rng_addr As String
+         
+    '#Store the current sheet name
+    sheet_name = current_sheet.Name
+    
+    '#Clear filters if any
+    current_sheet.AutoFilterMode = False
+    current_sheet.Range("A1").Select
+    
+    '#Select entire data range
+    used_rng_addr = current_sheet.Range("$A$1").Cells.SpecialCells(xlCellTypeLastCell).Address
+    Set data_rng = current_sheet.Range(Selection, Selection.End(xlDown)).Rows
+    
+    Debug.Print (data_rng.Address)
+
+    ' ****I am having a problem when I clear the filters
+    ' ****It clears my global variable (stockSummary)\'s contents as well....!!!
+    
+    '#Clear filter before writing the summary
+    'current_sheet.AutoFilterMode = False
+    
+    '#Write the computations on to a new range
+    Call WriteStockSummary(ComputeNstore(rng:=data_rng))
+    
+    '****Call to SubRoutine SetColor is commented to test the code
+    '****it is needed once the loop to write in the WriteStockSummary works...
+    
+    '#Color code the positive and negative changes in the yearlyChange
+    'SetColor
+    
+    '#Before exiting current sheet, reset the screen updating flag to true
+    Application.ScreenUpdating = True
+    
+    'Exiting the subroutine ensures completion of task with one sheet at a time
+    Exit Sub
+End Sub
+Function ComputeNstore(ByRef rng As Range) As Variant()
+    
+    Dim filtered_row_rng As Range
+    Dim filtered_data As Variant
+    Dim opPrice As Double
+    Dim clPrice As Double
+    Dim earliest As Long
+    Dim latest As Long
+    Dim last As Long
+    Dim data_addr As String
+    
+    'Get range apply filter on Ticker
+     rng.AutoFilter field:=1, Criteria1:="A"
+     
+    'set the filtered data range to an array, leaving the header row
+    data_addr = "$B$2:" & rng.End(xlDown).End(xlToRight).Address
+    Set filtered_rng = Range(data_addr).SpecialCells(xlCellTypeVisible).Columns
+       
+    For j = 0 To filtered_rng.Columns.Count
+        filtered_data = filtered_rng.SpecialCells(xlCellTypeVisible).Value
+    Next j
+    
+    'Use filtered range for computations and store the stock summary
+    'Store the name of the ticker in the Variant array
+    tickerName = rng.Cells(2, 1)
+    stockSummary(0) = tickerName
+    
+    last = filtered_rng.Rows.Count ' last row number in the column of data
+    
+    'Store yearly change of the ticker in the Variant array
+    earliest = Application.WorksheetFunction.Min(filtered_data(1, 1))
+    latest = Application.WorksheetFunction.Max(filtered_data(last, 1))
+    opPrice = Application.WorksheetFunction.VLookup(earliest, filtered_rng, 2, False)
+    clPrice = Application.WorksheetFunction.VLookup(latest, filtered_rng, 5, False)
+    yearlyChange = ((clPrice - opPrice) / opPrice)
+    stockSummary(1) = yearlyChange
+    
+    'Store percentage change of the ticker in the Variant array
+    percentChange = (yearlyChange * 100)
+    stockSummary(2) = percentChange
+    
+    'Store Total Volume of the ticker in the Variant array
+    totalStockVolume = Application.WorksheetFunction.Sum(Range("$G$6"))
+    stockSummary(3) = totalStockVolume
+    ComputeNstore = stockSummary
+End Function
+Sub WriteStockSummary(ByRef stockSummary)
+    
+    Dim i As Integer
+    Dim j As Integer
+    
+    Dim header_rng As Range
+    Set header_rng = Range("$I1:$Q1")
+    header_rng.Select
+    'Write column headers for the summary range
+    header_rng.Cells(1, 1).Value = "Ticker" 'Column I
+    header_rng.Cells(1, 2).Value = "Yearly Change" 'Column J
+    header_rng.Cells(1, 3).Value = "Percent Change" 'Column K
+    header_rng.Cells(1, 4).Value = "Total Stock Volume" 'Column L
+    header_rng.Cells(1, 8).Value = "Ticker" 'Column P
+    header_rng.Cells(1, 9).Value = "Value"  'Column Q
+    header_rng.Cells(2, 7).Value = "Greatest % Increase" 'Column O
+    header_rng.Cells(3, 7).Value = "Greatest % Decrease" 'Column O
+    header_rng.Cells(4, 7).Value = "Greatest Total Volume" 'Column O
+    
+    'Write stock wise computed data
+    For i = 1 To 50
+        For j = 0 To 4
+            Range("$I$" & j + 2).Select
+            ActiveCell.Offset(i, j).Value = stockSummary(j)
+        Next j
+    Next i
+    
+End Sub
+Sub SetColor()
+
+    Dim color_rng
+    'Set the Range to be colored based on condition
+    Set color_rng = Range("$J$2").End(xlDown).SpecialCells(xlCellTypeLastCell)
+    color_rng.Select
+    
+    Dim sameRow As Integer
+    Dim sameCol As Integer
+    Dim nextRow As Integer
+    Dim hasChanged As Boolean
+    
+    sameRow = 2
+    sameCol = 2
+    nextRow = sameRow + 1
+    
+    'Check for value change in the successive values
+    hasChanged = (color_rng.ActiveCell.Offset(nextRow, sameCol).Value - ActiveCell.Offset(sameRow, sameCol).Value)
+    
+    ' Set positive changes with green and negative changes with red
+    Select Case hasChanged
+        Case Is > 0
+            color_rng("J" & 2 + sameCol).Interior.ColorIndex = 4
+        Case Is < 0
+            color_rng("J" & 2 + sameCol).Interior.ColorIndex = 3
+        Case Else
+           color_rng("J" & 2 + sameCol).Interior.ColorIndex = 0
+    End Select
+
+End Sub

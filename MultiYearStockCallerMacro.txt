@@ -1,0 +1,17 @@
+Sub AlphaTestCaller()
+
+'Declare a variable to work with each sheet of this workbook
+    Dim current_sheet As Worksheet
+    
+    'The following line of code prevents the display from flickering during each operation
+    Application.ScreenUpdating = False
+    
+    'Loop through all the sheets in the current workbook
+    For Each current_sheet In Worksheets
+        current_sheet.Select
+        
+        'Call the subroutine to work with the current sheet
+        Call WorkWith(current_sheet)
+    Next
+    
+End Sub
